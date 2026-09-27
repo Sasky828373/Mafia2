@@ -63,6 +63,7 @@ public:
     static uint32_t alu_add32(X86State& cpu, uint32_t a, uint32_t b);
     static uint32_t alu_sub32(X86State& cpu, uint32_t a, uint32_t b);
     static void alu_test32(X86State& cpu, uint32_t a, uint32_t b);
+    static bool eval_jcc(const X86State& cpu, uint8_t cc);
     DispatchReport dispatch(X86State& cpu, uint32_t max_steps = 64);
     size_t import_count() const;
     size_t implemented_import_count() const;

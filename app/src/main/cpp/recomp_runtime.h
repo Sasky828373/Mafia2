@@ -14,14 +14,33 @@ constexpr uint32_t kHaltVa = 0xFFFFFFFFu;
 struct X86State {
     uint32_t eax{}, ebx{}, ecx{}, edx{};
     uint32_t esi{}, edi{}, ebp{}, esp{};
-    uint32_t eip{}, eflags{0x2};\n\n    static constexpr uint32_t CF = 1u << 0;\n    static constexpr uint32_t PF = 1u << 2;\n    static constexpr uint32_t ZF = 1u << 6;\n    static constexpr uint32_t SF = 1u << 7;\n    static constexpr uint32_t OF = 1u << 11;\n\n    bool flag(uint32_t mask) const { return (eflags & mask) != 0; }\n    void set_flag(uint32_t mask, bool v) { eflags = v ? (eflags | mask) : (eflags & ~mask); }
+    uint32_t eip{}, eflags{0x2};
+
+    static constexpr uint32_t CF = 1u << 0;
+    static constexpr uint32_t PF = 1u << 2;
+    static constexpr uint32_t ZF = 1u << 6;
+    static constexpr uint32_t SF = 1u << 7;
+    static constexpr uint32_t OF = 1u << 11;
+
+    bool flag(uint32_t mask) const { return (eflags & mask) != 0; }
+    void set_flag(uint32_t mask, bool value) {
+        eflags = value ? (eflags | mask) : (eflags & ~mask);
+    }
 };
 
 using ImportThunk = uint32_t(*)(X86State&);
-struct ImportEntry { std::string_view dll; std::string_view symbol; ImportThunk thunk; };
+struct ImportEntry {
+    std::string_view dll;
+    std::string_view symbol;
+    ImportThunk thunk;
+};
 
 enum class DispatchResult { Halted, MissingBlock, MemoryFault, StepLimit };
-struct DispatchReport { DispatchResult result{}; uint32_t steps{}; uint32_t last_eip{}; };
+struct DispatchReport {
+    DispatchResult result{};
+    uint32_t steps{};
+    uint32_t last_eip{};
+};
 
 class Runtime {
 public:
@@ -29,6 +48,7 @@ public:
     ~Runtime();
     Runtime(const Runtime&) = delete;
     Runtime& operator=(const Runtime&) = delete;
+
     bool ready() const;
     uint32_t image_base() const { return kImageBase; }
     uint32_t image_size() const { return kImageSize; }
@@ -42,6 +62,7 @@ public:
     size_t import_count() const;
     size_t implemented_import_count() const;
     const ImportEntry* find_import(std::string_view dll, std::string_view symbol) const;
+
 private:
     uint8_t* image_{};
 };

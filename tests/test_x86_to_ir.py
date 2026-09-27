@@ -12,7 +12,7 @@ with tempfile.TemporaryDirectory() as d:
  r=subprocess.run([sys.executable,"tools/x86_to_ir.py",str(p)],text=True,capture_output=True,check=True)
  assert "recomp_00401000" in r.stdout
  assert "cpu.eax = 0x12345678u;" in r.stdout
- assert "cpu.eax += 0x1u;" in r.stdout
+ assert "cpu.eax = rt.alu_add32(cpu, cpu.eax, 0x1u);" in r.stdout
  assert "rt.push32(cpu, cpu.eax)" in r.stdout
  assert "rt.pop32(cpu, cpu.ebx)" in r.stdout
  assert "stop=ret" in r.stdout

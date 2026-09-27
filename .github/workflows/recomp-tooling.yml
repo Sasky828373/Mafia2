@@ -20,4 +20,4 @@ jobs:
       - name: CLI smoke tests
         run: |
           python3 tools/pe_inventory.py --help
-          python3 tools/x86_cfg.py --help
+          python3 tools/x86_cfg.py --help\n          python3 tools/recomp_ir.py --help\n      - name: IR/codegen smoke test\n        run: python3 tests/test_recomp_ir.py

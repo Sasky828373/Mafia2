@@ -57,7 +57,12 @@ public:
     uint8_t* ptr_from_va(uint32_t va, size_t bytes = 1);
     const uint8_t* ptr_from_va(uint32_t va, size_t bytes = 1) const;
     bool push32(X86State& cpu, uint32_t value);
-    bool pop32(X86State& cpu, uint32_t& value);\n    bool read32(uint32_t va, uint32_t& value) const;\n    bool write32(uint32_t va, uint32_t value);\n    static uint32_t alu_add32(X86State& cpu, uint32_t a, uint32_t b);\n    static uint32_t alu_sub32(X86State& cpu, uint32_t a, uint32_t b);\n    static void alu_test32(X86State& cpu, uint32_t a, uint32_t b);
+    bool pop32(X86State& cpu, uint32_t& value);
+    bool read32(uint32_t va, uint32_t& value) const;
+    bool write32(uint32_t va, uint32_t value);
+    static uint32_t alu_add32(X86State& cpu, uint32_t a, uint32_t b);
+    static uint32_t alu_sub32(X86State& cpu, uint32_t a, uint32_t b);
+    static void alu_test32(X86State& cpu, uint32_t a, uint32_t b);
     DispatchReport dispatch(X86State& cpu, uint32_t max_steps = 64);
     size_t import_count() const;
     size_t implemented_import_count() const;

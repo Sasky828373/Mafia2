@@ -38,6 +38,16 @@ def lower_linear(b,base,start,secs,max_ins=256):
             ops.append(Op("add_imm",REG[x-0x40],1)); r+=1
         elif 0x48<=x<=0x4F:
             ops.append(Op("sub_imm",REG[x-0x48],1)); r+=1
+        elif x==0x3D and o+5<=len(b):
+            ops.append(Op("cmp","eax",u32(b,o+1))); r+=5
+        elif x==0xA9 and o+5<=len(b):
+            ops.append(Op("test","eax",u32(b,o+1))); r+=5
+        elif 0x70<=x<=0x7F and o+2<=len(b):
+            disp=struct.unpack_from("<b",b,o+1)[0]; fall=base+r+2; target=fall+disp
+            ops.append(Op("jcc",str(x&0x0F),target,fall)); r+=2; stop="jcc"; decoded+=1; break
+        elif x==0x0F and o+6<=len(b) and 0x80<=b[o+1]<=0x8F:
+            cc=b[o+1]&0x0F; disp=struct.unpack_from("<i",b,o+2)[0]; fall=base+r+6; target=(fall+disp)&0xffffffff
+            ops.append(Op("jcc",str(cc),target,fall)); r+=6; stop="jcc"; decoded+=1; break
         elif x==0xC3:
             ops.append(Op("ret")); r+=1; stop="ret"; decoded+=1; break
         else:

@@ -31,7 +31,7 @@ static bool has_vk_device(std::string& name) {
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_m2port_bootstrap_MainActivity_nativeProbe(JNIEnv* env, jclass) {
     std::ostringstream out;
-    out << "Mafia II Android ARM64 Bootstrap v0.2\n\n";
+    out << "Mafia II Android ARM64 Bootstrap v0.3\n\n";
 #if defined(__aarch64__)
     out << "CPU ABI: ARM64 OK\n";
 #else

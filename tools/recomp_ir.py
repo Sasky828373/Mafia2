@@ -20,7 +20,7 @@ class Block:
 def validate(block):
     for op in block.ops:
         if op.dst and op.dst not in REGS: raise ValueError(f"bad dst {op.dst}")
-        if op.kind not in {"mov_imm","mov","add_imm","sub_imm","cmp","test","jcc","xor","push","pop","set_eip","ret","halt"}:
+        if op.kind not in {"mov_imm","mov","add_imm","sub_imm","add_reg","sub_reg","cmp","test","jcc","xor","push","pop","set_eip","ret","halt"}:
             raise ValueError(f"unsupported IR op {op.kind}")
 
 def cpp(block):
@@ -31,6 +31,8 @@ def cpp(block):
         elif x.kind=="mov": out.append(f"  cpu.{x.dst} = cpu.{x.a};")
         elif x.kind=="add_imm": out.append(f"  cpu.{x.dst} = rt.alu_add32(cpu, cpu.{x.dst}, 0x{int(x.a)&0xffffffff:X}u);")
         elif x.kind=="sub_imm": out.append(f"  cpu.{x.dst} = rt.alu_sub32(cpu, cpu.{x.dst}, 0x{int(x.a)&0xffffffff:X}u);")
+        elif x.kind=="add_reg": out.append(f"  cpu.{x.dst} = rt.alu_add32(cpu, cpu.{x.dst}, cpu.{x.a});")
+        elif x.kind=="sub_reg": out.append(f"  cpu.{x.dst} = rt.alu_sub32(cpu, cpu.{x.dst}, cpu.{x.a});")
         elif x.kind=="cmp":
             rhs=f"cpu.{x.a}" if isinstance(x.a,str) else f"0x{int(x.a)&0xffffffff:X}u"
             out.append(f"  (void)rt.alu_sub32(cpu, cpu.{x.dst}, {rhs});")

@@ -13,3 +13,4 @@ APEX_*.dll
 PhysX*.dll
 binkw32.dll
 steam_api.dll
+\n# BYO-game generated recompilation outputs\nmafia2_pe_manifest.json\n/recomp_generated/\n

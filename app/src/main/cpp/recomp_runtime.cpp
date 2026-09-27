@@ -46,6 +46,49 @@ bool Runtime::pop32(X86State& cpu, uint32_t& value) {
     std::memcpy(&value, p, 4); cpu.esp += 4; return true;
 }
 
+static bool parity_even8(uint32_t v) {
+    v &= 0xFFu;
+    v ^= v >> 4; v &= 0xFu;
+    return ((0x6996u >> v) & 1u) == 0u;
+}
+static void set_szp(X86State& cpu, uint32_t r) {
+    cpu.set_flag(X86State::ZF, r == 0);
+    cpu.set_flag(X86State::SF, (r & 0x80000000u) != 0);
+    cpu.set_flag(X86State::PF, parity_even8(r));
+}
+bool Runtime::read32(uint32_t va, uint32_t& value) const {
+    const auto* p = ptr_from_va(va, 4);
+    if (!p) return false;
+    std::memcpy(&value, p, 4);
+    return true;
+}
+bool Runtime::write32(uint32_t va, uint32_t value) {
+    auto* p = ptr_from_va(va, 4);
+    if (!p) return false;
+    std::memcpy(p, &value, 4);
+    return true;
+}
+uint32_t Runtime::alu_add32(X86State& cpu, uint32_t a, uint32_t b) {
+    const uint32_t r = a + b;
+    cpu.set_flag(X86State::CF, r < a);
+    cpu.set_flag(X86State::OF, ((~(a ^ b) & (a ^ r)) & 0x80000000u) != 0);
+    set_szp(cpu, r);
+    return r;
+}
+uint32_t Runtime::alu_sub32(X86State& cpu, uint32_t a, uint32_t b) {
+    const uint32_t r = a - b;
+    cpu.set_flag(X86State::CF, a < b);
+    cpu.set_flag(X86State::OF, (((a ^ b) & (a ^ r)) & 0x80000000u) != 0);
+    set_szp(cpu, r);
+    return r;
+}
+void Runtime::alu_test32(X86State& cpu, uint32_t a, uint32_t b) {
+    const uint32_t r = a & b;
+    cpu.set_flag(X86State::CF, false);
+    cpu.set_flag(X86State::OF, false);
+    set_szp(cpu, r);
+}
+
 // ARM64-native C++ equivalent of a tiny x86 block used to validate the recomp ABI.
 // Semantics: eax=0x12345678; ebx=eax+0x10; ZF=0; ret.
 static bool block_00401000(Runtime& rt, X86State& cpu) {

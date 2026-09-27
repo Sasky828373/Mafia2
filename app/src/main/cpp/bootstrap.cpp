@@ -1,9 +1,11 @@
 #include <jni.h>
 #include <vulkan/vulkan.h>
 #include <dlfcn.h>
+#include <iomanip>
 #include <sstream>
 #include <string>
 #include <vector>
+#include "recomp_runtime.h"
 
 static bool has_vk_device(std::string& name) {
     VkApplicationInfo app{VK_STRUCTURE_TYPE_APPLICATION_INFO};
@@ -29,7 +31,7 @@ static bool has_vk_device(std::string& name) {
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_m2port_bootstrap_MainActivity_nativeProbe(JNIEnv* env, jclass) {
     std::ostringstream out;
-    out << "Mafia II Android ARM64 Bootstrap v0.1\n\n";
+    out << "Mafia II Android ARM64 Bootstrap v0.2\n\n";
 #if defined(__aarch64__)
     out << "CPU ABI: ARM64 OK\n";
 #else
@@ -37,14 +39,24 @@ Java_com_m2port_bootstrap_MainActivity_nativeProbe(JNIEnv* env, jclass) {
 #endif
     std::string gpu;
     out << "Vulkan: " << (has_vk_device(gpu) ? "OK" : "FAILED") << "\n";
-    if (!gpu.empty()) out << "GPU: " << gpu << "\n";
+    if (!gpu.empty()) out << "GPU: " << gpu << "\n\n";
+
+    m2::Runtime rt;
+    out << "Recomp memory arena: " << (rt.ready() ? "OK" : "FAILED") << "\n";
+    out << std::hex << std::uppercase << std::setfill('0');
+    out << "PE image base: 0x" << std::setw(8) << rt.image_base() << "\n";
+    out << "PE image size: 0x" << std::setw(8) << rt.image_size() << "\n";
+    out << "Mafia II entry VA: 0x" << std::setw(8) << rt.entry_va() << "\n";
+    out << std::dec;
+    out << "x86 CPU state: " << sizeof(m2::X86State) << " bytes\n";
+    out << "Import registry: " << rt.import_count() << " seed entries\n";
+
     void* dxvk = dlopen("libdxvk_d3d9.so", RTLD_NOW | RTLD_LOCAL);
-    out << "DXVK D3D9 module: " << (dxvk ? "FOUND" : "not bundled yet") << "\n";
+    out << "DXVK D3D9 backend: " << (dxvk ? "FOUND" : "pending") << "\n";
     if (dxvk) dlclose(dxvk);
-    void* game = dlopen("libmafia2_recomp.so", RTLD_NOW | RTLD_LOCAL);
-    out << "Mafia II ARM64 recomp module: " << (game ? "FOUND" : "missing (next milestone)") << "\n\n";
-    out << "Raw Mafia2.exe is PE32/i386 and cannot be loaded natively on Android ARM64.\n";
-    out << "Next: x86 recompilation/CPU bridge + Win32 ABI, then route D3D9 through DXVK.";
-    if (game) dlclose(game);
+
+    out << "\nPhase 0.2: runtime foundation only.\n";
+    out << "No x86 game instructions are executed yet.\n";
+    out << "Next: generated import census + translated code-block dispatcher.";
     return env->NewStringUTF(out.str().c_str());
 }

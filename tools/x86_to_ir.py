@@ -4,6 +4,7 @@ import argparse, struct, sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from recomp_ir import Block, Op, cpp
+from modrm import decode as decode_modrm
 
 REG=["eax","ecx","edx","ebx","esp","ebp","esi","edi"]
 def u16(b,o): return struct.unpack_from("<H",b,o)[0]
@@ -38,6 +39,23 @@ def lower_linear(b,base,start,secs,max_ins=256):
             ops.append(Op("add_imm",REG[x-0x40],1)); r+=1
         elif 0x48<=x<=0x4F:
             ops.append(Op("sub_imm",REG[x-0x48],1)); r+=1
+        elif x in (0x89,0x8B) and o+2<=len(b):
+            ea=decode_modrm(b,o+1); n=1+ea.size
+            if not ea.register: stop=f"unresolved_memory_mov_0x{x:02X}"; break
+            if x==0x89: ops.append(Op("mov",ea.rm,ea.reg))
+            else: ops.append(Op("mov",ea.reg,ea.rm))
+            r+=n
+        elif x in (0x01,0x03,0x29,0x2B,0x39,0x3B,0x85) and o+2<=len(b):
+            ea=decode_modrm(b,o+1); n=1+ea.size
+            if not ea.register: stop=f"unresolved_memory_alu_0x{x:02X}"; break
+            if x==0x01: ops.append(Op("add_reg",ea.rm,ea.reg))
+            elif x==0x03: ops.append(Op("add_reg",ea.reg,ea.rm))
+            elif x==0x29: ops.append(Op("sub_reg",ea.rm,ea.reg))
+            elif x==0x2B: ops.append(Op("sub_reg",ea.reg,ea.rm))
+            elif x==0x39: ops.append(Op("cmp",ea.rm,ea.reg))
+            elif x==0x3B: ops.append(Op("cmp",ea.reg,ea.rm))
+            else: ops.append(Op("test",ea.rm,ea.reg))
+            r+=n
         elif x==0x3D and o+5<=len(b):
             ops.append(Op("cmp","eax",u32(b,o+1))); r+=5
         elif x==0xA9 and o+5<=len(b):

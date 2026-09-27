@@ -31,7 +31,7 @@ static bool has_vk_device(std::string& name) {
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_m2port_bootstrap_MainActivity_nativeProbe(JNIEnv* env, jclass) {
     std::ostringstream out;
-    out << "Mafia II Android ARM64 Bootstrap v0.3\n\n";
+    out << "Mafia II Android ARM64 Bootstrap v0.3.1\n\n";
 #if defined(__aarch64__)
     out << "CPU ABI: ARM64 OK\n";
 #else
@@ -43,20 +43,35 @@ Java_com_m2port_bootstrap_MainActivity_nativeProbe(JNIEnv* env, jclass) {
 
     m2::Runtime rt;
     out << "Recomp memory arena: " << (rt.ready() ? "OK" : "FAILED") << "\n";
-    out << std::hex << std::uppercase << std::setfill('0');
-    out << "PE image base: 0x" << std::setw(8) << rt.image_base() << "\n";
-    out << "PE image size: 0x" << std::setw(8) << rt.image_size() << "\n";
-    out << "Mafia II entry VA: 0x" << std::setw(8) << rt.entry_va() << "\n";
-    out << std::dec;
-    out << "x86 CPU state: " << sizeof(m2::X86State) << " bytes\n";
-    out << "Import registry: " << rt.import_count() << " seed entries\n";
+    out << std::hex << std::uppercase << std::setfill('0')
+        << "PE image base: 0x" << std::setw(8) << rt.image_base() << "\n"
+        << "PE image size: 0x" << std::setw(8) << rt.image_size() << "\n"
+        << "Mafia II entry VA: 0x" << std::setw(8) << rt.entry_va() << "\n"
+        << std::dec
+        << "x86 CPU state: " << sizeof(m2::X86State) << " bytes\n"
+        << "Import registry: " << rt.import_count() << " seed entries\n";
+
+    m2::X86State cpu{};
+    cpu.esp = m2::kImageBase + m2::kImageSize - 0x1000u;
+    cpu.eip = m2::kTestBlockVa;
+    const bool pushed = rt.push32(cpu, m2::kHaltVa);
+    const auto report = pushed ? rt.dispatch(cpu)
+        : m2::DispatchReport{m2::DispatchResult::MemoryFault, 0, cpu.eip};
+    const bool dispatch_ok = report.result == m2::DispatchResult::Halted
+        && cpu.eax == 0x12345678u && cpu.ebx == 0x12345688u;
+
+    out << "Recomp dispatcher: " << (dispatch_ok ? "PASS" : "FAIL") << "\n";
+    out << std::hex << std::uppercase << std::setfill('0')
+        << "Test EAX: 0x" << std::setw(8) << cpu.eax << "\n"
+        << "Test EBX: 0x" << std::setw(8) << cpu.ebx << "\n"
+        << std::dec << "Translated blocks executed: " << report.steps << "\n";
 
     void* dxvk = dlopen("libdxvk_d3d9.so", RTLD_NOW | RTLD_LOCAL);
     out << "DXVK D3D9 backend: " << (dxvk ? "FOUND" : "pending") << "\n";
     if (dxvk) dlclose(dxvk);
 
-    out << "\nPhase 0.2: runtime foundation only.\n";
-    out << "No x86 game instructions are executed yet.\n";
-    out << "Next: generated import census + translated code-block dispatcher.";
+    out << "\nPhase 0.3: ARM64 recomp dispatcher active.\n"
+        << "Synthetic x86-semantics block executes through recomp ABI.\n"
+        << "Next: real Mafia II code blocks + generated import thunks.";
     return env->NewStringUTF(out.str().c_str());
 }

@@ -26,7 +26,9 @@ jobs:
           python3 tools/x86_cfg.py --help
           python3 tools/recomp_ir.py --help
           python3 tools/x86_to_ir.py --help
+          python3 tools/full_recomp.py --help
       - name: IR/codegen smoke tests
         run: |
           python3 tests/test_recomp_ir.py
           python3 tests/test_x86_to_ir.py
+          python3 tests/test_modrm.py

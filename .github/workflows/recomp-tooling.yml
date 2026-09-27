@@ -1,0 +1,23 @@
+name: Recomp Tooling
+
+on:
+  push:
+    paths:
+      - 'tools/**'
+      - '.github/workflows/recomp-tooling.yml'
+  pull_request:
+    paths:
+      - 'tools/**'
+  workflow_dispatch:
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Python tooling
+        run: python3 -m py_compile tools/*.py
+      - name: CLI smoke tests
+        run: |
+          python3 tools/pe_inventory.py --help
+          python3 tools/x86_cfg.py --help

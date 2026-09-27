@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(m2bootstrap LANGUAGES C CXX)
-add_library(m2bootstrap SHARED bootstrap.cpp)
+add_library(m2bootstrap SHARED bootstrap.cpp recomp_runtime.cpp)
 find_library(log-lib log)
 find_library(dl-lib dl)
 find_library(vulkan-lib vulkan)

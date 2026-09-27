@@ -4,10 +4,13 @@ on:
   push:
     paths:
       - 'tools/**'
+      - 'tests/**'
       - '.github/workflows/recomp-tooling.yml'
   pull_request:
     paths:
       - 'tools/**'
+      - 'tests/**'
+      - '.github/workflows/recomp-tooling.yml'
   workflow_dispatch:
 
 jobs:
@@ -16,8 +19,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Validate Python tooling
-        run: python3 -m py_compile tools/*.py
+        run: python3 -m py_compile tools/*.py tests/*.py
       - name: CLI smoke tests
         run: |
           python3 tools/pe_inventory.py --help
-          python3 tools/x86_cfg.py --help\n          python3 tools/recomp_ir.py --help\n          python3 tools/x86_to_ir.py --help\n      - name: IR/codegen smoke test\n        run: |\n          python3 tests/test_recomp_ir.py\n          python3 tests/test_x86_to_ir.py
+          python3 tools/x86_cfg.py --help
+          python3 tools/recomp_ir.py --help
+          python3 tools/x86_to_ir.py --help
+      - name: IR/codegen smoke tests
+        run: |
+          python3 tests/test_recomp_ir.py
+          python3 tests/test_x86_to_ir.py

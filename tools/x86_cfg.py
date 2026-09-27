@@ -76,11 +76,10 @@ def decode(b,o,rva):
         return pfx+1+ml,kind,[]
     return pfx+1,"unknown",[]
 
-def main():
-    ap=argparse.ArgumentParser(); ap.add_argument("exe",type=Path); ap.add_argument("-o","--output",type=Path,default=Path("cfg.json")); ap.add_argument("--max-blocks",type=int,default=250000)
-    a=ap.parse_args(); b=a.exe.read_bytes(); base,entry,secs=parse_pe(b)
+def scan(b, max_blocks=250000):
+    base,entry,secs=parse_pe(b)
     q=deque([entry]); seen=set(); blocks=[]; unresolved=[]
-    while q and len(blocks)<a.max_blocks:
+    while q and len(blocks)<max_blocks:
         start=q.popleft()
         if start in seen or not exec_rva(start,secs): continue
         seen.add(start); rva=start; ins=0; reason="eof"; targets=[]
@@ -91,17 +90,29 @@ def main():
             if not d: reason="truncated"; break
             ln,kind,t=d; ins+=1; nxt=rva+ln
             if kind=="unknown":
-                reason="unknown_opcode"; unresolved.append({"rva":hex(rva),"opcode":hex(b[off])}); break
+                reason="unknown_opcode"; unresolved.append({"rva":rva,"opcode":b[off]}); break
             if kind=="indirect":
-                reason="indirect_control_flow"; unresolved.append({"rva":hex(rva),"opcode":hex(b[off])}); break
+                reason="indirect_control_flow"; unresolved.append({"rva":rva,"opcode":b[off]}); break
             if kind=="call":
                 targets+=t; q.extend(x for x in t if exec_rva(x,secs)); rva=nxt; continue
             if kind in ("jmp","jcc"):
                 targets+=t; q.extend(x for x in t if exec_rva(x,secs)); reason=kind; break
             if kind=="ret": reason="ret"; break
             rva=nxt
-        blocks.append({"start_rva":hex(start),"start_va":hex(base+start),"instructions":ins,"end_rva":hex(rva),"reason":reason,"targets_rva":[hex(x) for x in targets]})
-    out={"image_base":hex(base),"entry_rva":hex(entry),"entry_va":hex(base+entry),"blocks":blocks,"block_count":len(blocks),"unresolved":unresolved,"unresolved_count":len(unresolved),"queue_remaining":len(q)}
+        blocks.append({"rva":start,"va":base+start,"instructions":ins,"end_rva":rva,"reason":reason,"targets_rva":targets})
+    return {"image_base":base,"entry_rva":entry,"entry_va":base+entry,"blocks":blocks,
+            "block_count":len(blocks),"unresolved":unresolved,
+            "unresolved_count":len(unresolved),"queue_remaining":len(q)}
+
+def main():
+    ap=argparse.ArgumentParser(); ap.add_argument("exe",type=Path); ap.add_argument("-o","--output",type=Path,default=Path("cfg.json")); ap.add_argument("--max-blocks",type=int,default=250000)
+    a=ap.parse_args(); b=a.exe.read_bytes(); raw=scan(b,a.max_blocks)
+    out=dict(raw)
+    out["image_base"]=hex(raw["image_base"]); out["entry_rva"]=hex(raw["entry_rva"]); out["entry_va"]=hex(raw["entry_va"])
+    out["blocks"]=[{"start_rva":hex(x["rva"]),"start_va":hex(x["va"]),"instructions":x["instructions"],
+                    "end_rva":hex(x["end_rva"]),"reason":x["reason"],
+                    "targets_rva":[hex(t) for t in x["targets_rva"]]} for x in raw["blocks"]]
+    out["unresolved"]=[{"rva":hex(x["rva"]),"opcode":hex(x["opcode"])} for x in raw["unresolved"]]
     a.output.write_text(json.dumps(out,indent=2)+"\n")
-    print(f"blocks={len(blocks)} unresolved={len(unresolved)} queue={len(q)} -> {a.output}")
+    print(f"blocks={raw['block_count']} unresolved={raw['unresolved_count']} queue={raw['queue_remaining']} -> {a.output}")
 if __name__=="__main__": main()

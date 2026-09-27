@@ -89,6 +89,33 @@ void Runtime::alu_test32(X86State& cpu, uint32_t a, uint32_t b) {
     set_szp(cpu, r);
 }
 
+bool Runtime::eval_jcc(const X86State& cpu, uint8_t cc) {
+    const bool cf = cpu.flag(X86State::CF);
+    const bool pf = cpu.flag(X86State::PF);
+    const bool zf = cpu.flag(X86State::ZF);
+    const bool sf = cpu.flag(X86State::SF);
+    const bool of = cpu.flag(X86State::OF);
+    switch (cc & 0x0Fu) {
+        case 0x0: return of;                 // JO
+        case 0x1: return !of;                // JNO
+        case 0x2: return cf;                 // JB/JC
+        case 0x3: return !cf;                // JAE/JNC
+        case 0x4: return zf;                 // JE/JZ
+        case 0x5: return !zf;                // JNE/JNZ
+        case 0x6: return cf || zf;           // JBE
+        case 0x7: return !cf && !zf;         // JA
+        case 0x8: return sf;                 // JS
+        case 0x9: return !sf;                // JNS
+        case 0xA: return pf;                 // JP/JPE
+        case 0xB: return !pf;                // JNP/JPO
+        case 0xC: return sf != of;           // JL
+        case 0xD: return sf == of;           // JGE
+        case 0xE: return zf || (sf != of);   // JLE
+        case 0xF: return !zf && (sf == of);  // JG
+    }
+    return false;
+}
+
 // ARM64-native C++ equivalent of a tiny x86 block used to validate the recomp ABI.
 // Semantics: eax=0x12345678; ebx=eax+0x10; ZF=0; ret.
 static bool block_00401000(Runtime& rt, X86State& cpu) {

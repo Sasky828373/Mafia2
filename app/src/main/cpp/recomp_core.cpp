@@ -36,6 +36,11 @@ int mafia2_recomp_main(const char* game_root) {
     const auto report = rt.dispatch(cpu, 1000000);
     M2LOG("dispatcher result=%d steps=%u eip=0x%08X",
           static_cast<int>(report.result), report.steps, report.last_eip);
+    if (rt.last_unsupported_va() != 0u) {
+        M2LOG("unsupported x86: va=0x%08X mnemonic=%s",
+              rt.last_unsupported_va(),
+              rt.last_unsupported_mnemonic() ? rt.last_unsupported_mnemonic() : "?");
+    }
 
     switch (report.result) {
         case m2::DispatchResult::Halted: return 0;

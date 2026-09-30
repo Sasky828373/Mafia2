@@ -250,7 +250,8 @@ def write_shards(text,output,blocks_per_shard):
         group=chunks[i:i+blocks_per_shard]; names=[]
         shard=[prefix]
         for chunk in group:
-            name=chunk.split("(",1)[0].strip()
+            suffix=chunk.split("(",1)[0].strip()
+            name="block_"+suffix
             names.append(name); shard.append("bool "+name+"("+chunk.split("(",1)[1])
         shard.append("}")
         (output/f"mafia2_generated_{shard_count:04d}.cpp").write_text("".join(shard))

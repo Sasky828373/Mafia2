@@ -235,8 +235,33 @@ def generate(data,max_blocks):
     out += ['    default: return false;','  }','}','}']
     return "\n".join(out)+"\n",c
 
+def write_shards(text,output,blocks_per_shard):
+    if blocks_per_shard<=0:
+        output.write_text(text); return 1
+    # Split only at generated block boundaries; keep namespace/includes valid per TU.
+    prefix=text[:text.index("static bool block_")]
+    dispatch_at=text.index("bool dispatch(m2::Runtime& rt,m2::X86State& cpu)")
+    body=text[text.index("static bool block_"):dispatch_at]
+    dispatch=text[dispatch_at:]
+    chunks=body.split("static bool block_")[1:]
+    output.mkdir(parents=True,exist_ok=True)
+    decl=[]; shard_count=0
+    for i in range(0,len(chunks),blocks_per_shard):
+        group=chunks[i:i+blocks_per_shard]; names=[]
+        shard=[prefix]
+        for chunk in group:
+            name=chunk.split("(",1)[0].strip()
+            names.append(name); shard.append("bool "+name+"("+chunk.split("(",1)[1])
+        shard.append("}")
+        (output/f"mafia2_generated_{shard_count:04d}.cpp").write_text("".join(shard))
+        decl.extend(f"bool {n}(m2::Runtime&,m2::X86State&);" for n in names); shard_count+=1
+    # Dispatcher TU owns public dispatch and references externally-linked block functions.
+    dp=prefix+"\n".join(decl)+"\n"+dispatch
+    (output/"mafia2_generated_dispatch.cpp").write_text(dp)
+    return shard_count+1
+
 def main():
-    ap=argparse.ArgumentParser();ap.add_argument("exe",type=Path);ap.add_argument("-o","--output",type=Path,required=True);ap.add_argument("--max-blocks",type=int,default=1000000)
-    a=ap.parse_args();text,c=generate(a.exe.read_bytes(),a.max_blocks);a.output.write_text(text)
-    print(f"generated {c['block_count']} reachable block skeletons; unresolved indirect={c['indirect_count']}")
+    ap=argparse.ArgumentParser();ap.add_argument("exe",type=Path);ap.add_argument("-o","--output",type=Path,required=True);ap.add_argument("--max-blocks",type=int,default=1000000);ap.add_argument("--blocks-per-shard",type=int,default=0)
+    a=ap.parse_args();generated,c=generate(a.exe.read_bytes(),a.max_blocks);units=write_shards(generated,a.output,a.blocks_per_shard)
+    print(f"generated {c['block_count']} reachable block skeletons in {units} C++ unit(s); unresolved indirect={c['indirect_count']}")
 if __name__=="__main__":main()

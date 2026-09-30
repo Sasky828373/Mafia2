@@ -73,6 +73,10 @@ public:
     static void alu_test32(X86State& cpu, uint32_t a, uint32_t b);
     static uint32_t alu_logic32(X86State& cpu, uint32_t value);
     static uint32_t& reg32(X86State& cpu, uint8_t index);
+    static uint16_t reg16(const X86State& cpu, uint8_t index);
+    static uint8_t reg8(const X86State& cpu, uint8_t index);
+    static void set_reg16(X86State& cpu, uint8_t index, uint16_t value);
+    static void set_reg8(X86State& cpu, uint8_t index, uint8_t value);
     static const uint32_t& reg32(const X86State& cpu, uint8_t index);
     static uint32_t ea32(const X86State& cpu, int base, int index, uint8_t scale, int32_t disp);
     bool unsupported(uint32_t va, const char* mnemonic) { (void)va; (void)mnemonic; return false; }

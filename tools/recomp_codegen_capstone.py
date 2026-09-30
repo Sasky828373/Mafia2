@@ -127,8 +127,24 @@ def generate(data,max_blocks):
                 value=f"m2::Runtime::alu_shift32(cpu,{a},{b},{kind})"
                 if not write_operand(out,ins,dst,value):
                     out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break
+            elif ins.mnemonic=="imul" and len(ins.operands) in (2,3):
+                dst=ins.operands[0]
+                if dst.type!=X86_OP_REG or ins.reg_name(dst.reg) not in REG:
+                    out += [f'  return rt.unsupported(0x{ins.address:08X}u, "imul");'];terminated=True;break
+                if len(ins.operands)==2:
+                    a=read_operand(out,ins,dst,"imula"); b=read_operand(out,ins,ins.operands[1],"imulb")
+                else:
+                    a=read_operand(out,ins,ins.operands[1],"imula"); b=read_operand(out,ins,ins.operands[2],"imulb")
+                if a is None or b is None:
+                    out += [f'  return rt.unsupported(0x{ins.address:08X}u, "imul");'];terminated=True;break
+                prod=f"static_cast<int64_t>(static_cast<int32_t>({a}))*static_cast<int64_t>(static_cast<int32_t>({b}))"
+                value=f"static_cast<uint32_t>({prod})"
+                out.append(f"  {{ const int64_t wide={prod}; const uint32_t low=static_cast<uint32_t>(wide); const bool ov=(wide!=static_cast<int64_t>(static_cast<int32_t>(low))); cpu.set_flag(m2::X86State::CF,ov); cpu.set_flag(m2::X86State::OF,ov);")
+                write_operand(out,ins,dst,"low")
+                out.append("  }")
             elif ins.group(CS_GRP_RET):
-                out += ['  { uint32_t t{}; if (!rt.pop32(cpu,t)) return false; cpu.eip=t; }','  return true;'];terminated=True;break
+                adjust=(ins.operands[0].imm&0xffff) if ins.operands and ins.operands[0].type==X86_OP_IMM else 0
+                out += ['  { uint32_t t{}; if (!rt.pop32(cpu,t)) return false; cpu.eip=t;'+(f' cpu.esp+=0x{adjust:X}u;' if adjust else '')+' }','  return true;'];terminated=True;break
             elif ins.group(CS_GRP_JUMP) and ins.operands and ins.operands[0].type==X86_OP_IMM:
                 target=ins.operands[0].imm&0xffffffff
                 if ins.mnemonic=="jmp": out += [f'  cpu.eip=0x{target:08X}u;','  return true;'];terminated=True;break

@@ -56,7 +56,7 @@ def generate(data,max_blocks):
     c=cfg.scan(data,max_blocks);base,_,secs=cfg.pe(data)
     md=Cs(CS_ARCH_X86,CS_MODE_32);md.detail=True
     out=['// generated from user-supplied executable; do not commit game code',
-         '#include "recomp_runtime.h"','namespace m2_generated {']
+         '#include "recomp_runtime.h"','#include <cstdint>','#include <climits>','namespace m2_generated {']
     addrs=[]
     for b in c["blocks"]:
         va=b["va"];addrs.append(va)
@@ -164,6 +164,27 @@ def generate(data,max_blocks):
                     out.append("  cpu.eax=static_cast<uint32_t>(static_cast<int32_t>(static_cast<int16_t>(cpu.eax&0xffffu)));")
                 else:
                     out.append("  cpu.edx=(cpu.eax&0x80000000u)?0xffffffffu:0u;")
+            elif ins.mnemonic in ("mul","imul") and len(ins.operands)==1:
+                src=ins.operands[0]; value=read_operand(out,ins,src,"mulsrc")
+                if value is None or src.size not in (1,2,4):
+                    out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break
+                bits=src.size*8
+                lhs="(cpu.eax&0xffu)" if bits==8 else ("(cpu.eax&0xffffu)" if bits==16 else "cpu.eax")
+                if ins.mnemonic=="mul":
+                    out.append(f"  {{ const uint64_t wide=static_cast<uint64_t>({lhs})*static_cast<uint64_t>({value});")
+                else:
+                    ctype={8:"int8_t",16:"int16_t",32:"int32_t"}[bits]
+                    out.append(f"  {{ const int64_t wide=static_cast<int64_t>(static_cast<{ctype}>({lhs}))*static_cast<int64_t>(static_cast<{ctype}>({value}));")
+                if bits==8:
+                    out.append("  cpu.eax=(cpu.eax&0xffff0000u)|static_cast<uint16_t>(wide);")
+                    ov="((static_cast<uint64_t>(wide)>>8)&0xffu)!=0u" if ins.mnemonic=="mul" else "(wide<-128 || wide>127)"
+                elif bits==16:
+                    out.append("  cpu.eax=(cpu.eax&0xffff0000u)|(static_cast<uint32_t>(wide)&0xffffu); cpu.edx=(cpu.edx&0xffff0000u)|((static_cast<uint64_t>(wide)>>16)&0xffffu);")
+                    ov="((static_cast<uint64_t>(wide)>>16)&0xffffu)!=0u" if ins.mnemonic=="mul" else "(wide<-32768 || wide>32767)"
+                else:
+                    out.append("  cpu.eax=static_cast<uint32_t>(wide); cpu.edx=static_cast<uint32_t>(static_cast<uint64_t>(wide)>>32);")
+                    ov="(static_cast<uint64_t>(wide)>>32)!=0u" if ins.mnemonic=="mul" else "(wide<static_cast<int64_t>(INT32_MIN) || wide>static_cast<int64_t>(INT32_MAX))"
+                out.append(f"  const bool ov={ov}; cpu.set_flag(m2::X86State::CF,ov); cpu.set_flag(m2::X86State::OF,ov); }}")
             elif ins.mnemonic=="imul" and len(ins.operands) in (2,3):
                 dst=ins.operands[0]
                 if dst.type!=X86_OP_REG or ins.reg_name(dst.reg) not in REG:

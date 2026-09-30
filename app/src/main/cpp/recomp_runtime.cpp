@@ -2,6 +2,8 @@
 #include <sys/mman.h>
 #include <array>
 #include <cstring>
+#include <cstdio>
+#include <vector>
 
 namespace m2 {
 static uint32_t stub_unimplemented(X86State&) { return 0; }
@@ -23,6 +25,32 @@ Runtime::Runtime() {
 }
 Runtime::~Runtime() { if (image_) munmap(image_, kImageSize); }
 bool Runtime::ready() const { return image_ != nullptr; }
+bool Runtime::load_pe32(const char* path) {
+    if(!image_ || !path) return false;
+    FILE* fp=std::fopen(path,"rb"); if(!fp)return false;
+    std::fseek(fp,0,SEEK_END); long n=std::ftell(fp); std::rewind(fp);
+    if(n<0x100){std::fclose(fp);return false;}
+    std::vector<uint8_t> b(static_cast<size_t>(n));
+    if(std::fread(b.data(),1,b.size(),fp)!=b.size()){std::fclose(fp);return false;}
+    std::fclose(fp);
+    auto r16=[&](size_t o)->uint16_t{uint16_t v{};if(o+2>b.size())return 0;std::memcpy(&v,b.data()+o,2);return v;};
+    auto r32=[&](size_t o)->uint32_t{uint32_t v{};if(o+4>b.size())return 0;std::memcpy(&v,b.data()+o,4);return v;};
+    if(r16(0)!=0x5A4D)return false;
+    const uint32_t pe=r32(0x3c); if(pe+24>b.size() || r32(pe)!=0x00004550)return false;
+    const uint16_t sections=r16(pe+6), optsz=r16(pe+20); const size_t opt=pe+24;
+    if(r16(opt)!=0x10B || r32(opt+28)!=kImageBase || r32(opt+56)>kImageSize)return false;
+    const uint32_t headers=r32(opt+60); if(headers>b.size() || headers>kImageSize)return false;
+    std::memset(image_,0,kImageSize); std::memcpy(image_,b.data(),headers);
+    const size_t sh=opt+optsz;
+    for(uint16_t i=0;i<sections;i++){
+        const size_t p=sh+static_cast<size_t>(i)*40; if(p+40>b.size())return false;
+        const uint32_t va=r32(p+12), rawsz=r32(p+16), raw=r32(p+20);
+        if(rawsz==0)continue;
+        if(static_cast<uint64_t>(va)+rawsz>kImageSize || static_cast<uint64_t>(raw)+rawsz>b.size())return false;
+        std::memcpy(image_+va,b.data()+raw,rawsz);
+    }
+    return true;
+}
 bool Runtime::contains_va(uint32_t va, size_t bytes) const {
     if (va < kImageBase || bytes > kImageSize) return false;
     const uint64_t off = static_cast<uint64_t>(va) - kImageBase;

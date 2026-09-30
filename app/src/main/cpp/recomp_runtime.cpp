@@ -201,6 +201,12 @@ uint32_t Runtime::ea32(const X86State& c,int b,int i,uint8_t scale,int32_t d) {
     return v;
 }
 
+bool Runtime::unsupported(uint32_t va, const char* mnemonic) {
+    last_unsupported_va_ = va;
+    last_unsupported_mnemonic_ = mnemonic;
+    return false;
+}
+
 bool Runtime::eval_jcc(const X86State& cpu, uint8_t cc) {
     const bool cf = cpu.flag(X86State::CF);
     const bool pf = cpu.flag(X86State::PF);

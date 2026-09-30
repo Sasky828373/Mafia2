@@ -118,6 +118,8 @@ def generate(data,max_blocks):
                     out += [f'  return rt.unsupported(0x{ins.address:08X}u, "pop");'];terminated=True;break
             elif ins.mnemonic in ("add","sub","adc","sbb","cmp","test","and","or","xor") and len(ins.operands)==2:
                 dst,src=ins.operands
+                if dst.size!=4:
+                    out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}_width");'];terminated=True;break
                 a=read_operand(out,ins,dst,"a"); b=read_operand(out,ins,src,"b")
                 if a is None or b is None:
                     out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break

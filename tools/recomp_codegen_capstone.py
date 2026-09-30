@@ -19,6 +19,7 @@ def ea(ins,o):
     return f"m2::Runtime::ea32(cpu,{b},{i},{m.scale},{m.disp})"
 
 def read_operand(out,ins,o,tmp):
+    tmp=f"{tmp}_{ins.address:08X}"
     if o.type==X86_OP_REG and ins.reg_name(o.reg) in REG:
         return f"m2::Runtime::reg32(cpu,{REG[ins.reg_name(o.reg)]})"
     if o.type==X86_OP_IMM:
@@ -81,8 +82,9 @@ def generate(data,max_blocks):
                 elif src.type==X86_OP_MEM and src.size in (1,2):
                     ctype="uint8_t" if src.size==1 else "uint16_t"
                     reader="read8" if src.size==1 else "read16"
-                    out.append(f"  {ctype} narrow{{}}; if(!rt.{reader}({ea(ins,src)},narrow)) return false;")
-                    raw="static_cast<uint32_t>(narrow)"
+                    narrow=f"narrow_{ins.address:08X}"
+                    out.append(f"  {ctype} {narrow}{{}}; if(!rt.{reader}({ea(ins,src)},{narrow})) return false;")
+                    raw=f"static_cast<uint32_t>({narrow})"
                 else: raw=None
                 if raw is None:
                     out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break
@@ -96,8 +98,9 @@ def generate(data,max_blocks):
                     out += [f'  return rt.unsupported(0x{ins.address:08X}u, "push");'];terminated=True;break
                 out.append(f"  if(!rt.push32(cpu,{value})) return false;")
             elif ins.mnemonic=="pop" and len(ins.operands)==1:
-                out.append("  uint32_t v{}; if(!rt.pop32(cpu,v)) return false;")
-                if not write_operand(out,ins,ins.operands[0],"v"):
+                popv=f"pop_{ins.address:08X}"
+                out.append(f"  uint32_t {popv}{{}}; if(!rt.pop32(cpu,{popv})) return false;")
+                if not write_operand(out,ins,ins.operands[0],popv):
                     out += [f'  return rt.unsupported(0x{ins.address:08X}u, "pop");'];terminated=True;break
             elif ins.mnemonic in ("add","sub","cmp","test","and","or","xor") and len(ins.operands)==2:
                 dst,src=ins.operands

@@ -89,6 +89,23 @@ void Runtime::alu_test32(X86State& cpu, uint32_t a, uint32_t b) {
     set_szp(cpu, r);
 }
 
+uint32_t Runtime::alu_logic32(X86State& cpu, uint32_t value) {
+    cpu.set_flag(X86State::CF, false); cpu.set_flag(X86State::OF, false);
+    set_szp(cpu, value); return value;
+}
+uint32_t& Runtime::reg32(X86State& c, uint8_t i) {
+    switch(i&7u){case 0:return c.eax;case 1:return c.ecx;case 2:return c.edx;case 3:return c.ebx;case 4:return c.esp;case 5:return c.ebp;case 6:return c.esi;default:return c.edi;}
+}
+const uint32_t& Runtime::reg32(const X86State& c, uint8_t i) {
+    switch(i&7u){case 0:return c.eax;case 1:return c.ecx;case 2:return c.edx;case 3:return c.ebx;case 4:return c.esp;case 5:return c.ebp;case 6:return c.esi;default:return c.edi;}
+}
+uint32_t Runtime::ea32(const X86State& c,int b,int i,uint8_t scale,int32_t d) {
+    uint32_t v=static_cast<uint32_t>(d);
+    if(b>=0)v+=reg32(c,static_cast<uint8_t>(b));
+    if(i>=0)v+=reg32(c,static_cast<uint8_t>(i))*scale;
+    return v;
+}
+
 bool Runtime::eval_jcc(const X86State& cpu, uint8_t cc) {
     const bool cf = cpu.flag(X86State::CF);
     const bool pf = cpu.flag(X86State::PF);

@@ -158,6 +158,16 @@ uint32_t& Runtime::reg32(X86State& c, uint8_t i) {
 const uint32_t& Runtime::reg32(const X86State& c, uint8_t i) {
     switch(i&7u){case 0:return c.eax;case 1:return c.ecx;case 2:return c.edx;case 3:return c.ebx;case 4:return c.esp;case 5:return c.ebp;case 6:return c.esi;default:return c.edi;}
 }
+uint16_t Runtime::reg16(const X86State& cpu,uint8_t i){return static_cast<uint16_t>(reg32(cpu,i)&0xffffu);}
+uint8_t Runtime::reg8(const X86State& cpu,uint8_t i){
+    if(i<4)return static_cast<uint8_t>(reg32(cpu,i)&0xffu);
+    return static_cast<uint8_t>((reg32(cpu,i-4)>>8)&0xffu);
+}
+void Runtime::set_reg16(X86State& cpu,uint8_t i,uint16_t v){auto& r=reg32(cpu,i);r=(r&0xffff0000u)|v;}
+void Runtime::set_reg8(X86State& cpu,uint8_t i,uint8_t v){
+    if(i<4){auto& r=reg32(cpu,i);r=(r&0xffffff00u)|v;}
+    else {auto& r=reg32(cpu,i-4);r=(r&0xffff00ffu)|(static_cast<uint32_t>(v)<<8);}
+}
 uint32_t Runtime::ea32(const X86State& c,int b,int i,uint8_t scale,int32_t d) {
     uint32_t v=static_cast<uint32_t>(d);
     if(b>=0)v+=reg32(c,static_cast<uint8_t>(b));

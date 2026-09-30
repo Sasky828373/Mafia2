@@ -148,6 +148,8 @@ uint32_t Runtime::alu_sbb(X86State& cpu,uint32_t a,uint32_t b,uint8_t bits){
     cpu.set_flag(X86State::CF,static_cast<uint64_t>(a)<sub);cpu.set_flag(X86State::OF,(((a^b)&(a^r))&width_sign(bits))!=0);set_szp_width(cpu,r,bits);return r;
 }
 uint32_t Runtime::alu_logic(X86State& cpu,uint32_t v,uint8_t bits){v&=width_mask(bits);cpu.set_flag(X86State::CF,false);cpu.set_flag(X86State::OF,false);set_szp_width(cpu,v,bits);return v;}
+uint32_t Runtime::alu_inc(X86State& cpu,uint32_t v,uint8_t bits){const bool cf=cpu.flag(X86State::CF);const uint32_t r=alu_add(cpu,v,1u,bits);cpu.set_flag(X86State::CF,cf);return r;}
+uint32_t Runtime::alu_dec(X86State& cpu,uint32_t v,uint8_t bits){const bool cf=cpu.flag(X86State::CF);const uint32_t r=alu_sub(cpu,v,1u,bits);cpu.set_flag(X86State::CF,cf);return r;}
 uint32_t Runtime::alu_adc32(X86State& cpu,uint32_t a,uint32_t b) {
     const uint32_t c=cpu.flag(X86State::CF)?1u:0u;
     const uint64_t w=static_cast<uint64_t>(a)+b+c; const uint32_t r=static_cast<uint32_t>(w);

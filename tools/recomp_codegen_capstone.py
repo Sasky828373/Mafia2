@@ -81,7 +81,8 @@ def generate(data,max_blocks):
                 dst=ins.operands[0]; a=read_operand(out,ins,dst,"a")
                 if a is None:
                     out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break
-                value=f"m2::Runtime::alu_{'add' if ins.mnemonic=='inc' else 'sub'}32(cpu,{a},1u)"
+                bits=dst.size*8
+                value=f"m2::Runtime::alu_{ins.mnemonic}(cpu,{a},{bits})"
                 if not write_operand(out,ins,dst,value):
                     out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break
             elif ins.mnemonic in ("movzx","movsx") and len(ins.operands)==2:
@@ -158,6 +159,11 @@ def generate(data,max_blocks):
                 cc={"seto":0,"setno":1,"setb":2,"setae":3,"sete":4,"setne":5,"setbe":6,"seta":7,"sets":8,"setns":9,"setp":10,"setnp":11,"setl":12,"setge":13,"setle":14,"setg":15}.get(ins.mnemonic)
                 if cc is None or not write_operand(out,ins,ins.operands[0],f"(rt.eval_jcc(cpu,{cc})?1u:0u)"):
                     out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break
+            elif ins.mnemonic in ("cwde","cdq"):
+                if ins.mnemonic=="cwde":
+                    out.append("  cpu.eax=static_cast<uint32_t>(static_cast<int32_t>(static_cast<int16_t>(cpu.eax&0xffffu)));")
+                else:
+                    out.append("  cpu.edx=(cpu.eax&0x80000000u)?0xffffffffu:0u;")
             elif ins.mnemonic=="imul" and len(ins.operands) in (2,3):
                 dst=ins.operands[0]
                 if dst.type!=X86_OP_REG or ins.reg_name(dst.reg) not in REG:

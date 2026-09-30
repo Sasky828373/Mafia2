@@ -4,7 +4,7 @@ import argparse,json,struct
 from collections import Counter,deque
 from pathlib import Path
 from capstone import Cs,CS_ARCH_X86,CS_MODE_32,CS_GRP_CALL,CS_GRP_JUMP,CS_GRP_RET
-from capstone.x86 import X86_OP_IMM
+from capstone.x86 import X86_OP_IMM,X86_OP_MEM
 
 def u16(b,o): return struct.unpack_from("<H",b,o)[0]
 def u32(b,o): return struct.unpack_from("<I",b,o)[0]
@@ -21,6 +21,25 @@ def off(rva,secs):
         if rv<=rva<rv+max(vs,rs) and rva-rv<rs:return rp+rva-rv
 def executable(rva,secs):
     return any((ch&0x20000000) and rv<=rva<rv+max(vs,rs) for _,rv,vs,rs,_,ch in secs)
+def jump_table_targets(data,base,secs,ins,max_entries=4096):
+    if not ins.operands or ins.operands[0].type!=X86_OP_MEM:return []
+    m=ins.operands[0].mem
+    # Classic MSVC IA-32 switch: jmp dword ptr [index*4 + absolute_table]
+    if m.scale!=4 or not m.index or m.base:return []
+    table_va=m.disp & 0xffffffff
+    table_rva=(table_va-base)&0xffffffff
+    p=off(table_rva,secs)
+    if p is None:return []
+    out=[]
+    for i in range(max_entries):
+        q=p+i*4
+        if q+4>len(data):break
+        va=u32(data,q); rva=(va-base)&0xffffffff
+        if not executable(rva,secs):break
+        out.append(rva)
+    # Avoid treating arbitrary pointer data as a switch table.
+    return list(dict.fromkeys(out)) if len(out)>=2 else []
+
 def scan(data,max_blocks=1000000):
     base,entry,secs=pe(data); md=Cs(CS_ARCH_X86,CS_MODE_32); md.detail=True
     q=deque([entry]); seen=set(); blocks=[]; mn=Counter(); indirect=[]
@@ -45,7 +64,12 @@ def scan(data,max_blocks=1000000):
             if ins.group(CS_GRP_JUMP):
                 conditional=ins.mnemonic not in ("jmp","ljmp")
                 if imm is not None and executable(imm,secs):targets.append(imm);q.append(imm)
-                else: indirect.append({"rva":rva,"mnemonic":ins.mnemonic,"op":ins.op_str})
+                else:
+                    jt=jump_table_targets(data,base,secs,ins)
+                    if jt:
+                        targets.extend(jt); q.extend(jt)
+                    else:
+                        indirect.append({"rva":rva,"mnemonic":ins.mnemonic,"op":ins.op_str})
                 if conditional and executable(nxt,secs):targets.append(nxt);q.append(nxt)
                 reason="jcc" if conditional else ("jmp" if imm is not None else "indirect_jump");break
             if ins.mnemonic in ("int3","ud2"):
@@ -54,12 +78,12 @@ def scan(data,max_blocks=1000000):
         blocks.append({"rva":start,"va":base+start,"instructions":count,"reason":reason,"targets":targets})
     return {"image_base":base,"entry_rva":entry,"entry_va":base+entry,"blocks":blocks,
       "block_count":len(blocks),"queue_remaining":len(q),"indirect":indirect,
-      "indirect_count":len(indirect),"mnemonics":mn}
+      "indirect_count":len(indirect),"resolved_jump_table_edges":sum(len(b["targets"]) for b in blocks if b["reason"]=="indirect_jump"),"mnemonics":mn}
 def main():
     a=argparse.ArgumentParser();a.add_argument("exe",type=Path);a.add_argument("-o","--output",type=Path,default=Path("cfg_capstone.json"));a.add_argument("--max-blocks",type=int,default=1000000)
     z=a.parse_args();r=scan(z.exe.read_bytes(),z.max_blocks)
     out={k:v for k,v in r.items() if k!="mnemonics"}
     out["mnemonics"]=[{"name":k,"count":v} for k,v in r["mnemonics"].most_common()]
     z.output.write_text(json.dumps(out,indent=2)+"\n")
-    print(f"blocks={r['block_count']} indirect={r['indirect_count']} queue={r['queue_remaining']} unique_mnemonics={len(r['mnemonics'])}")
+    print(f"blocks={r['block_count']} indirect={r['indirect_count']} jt_edges={r['resolved_jump_table_edges']} queue={r['queue_remaining']} unique_mnemonics={len(r['mnemonics'])}")
 if __name__=="__main__":main()

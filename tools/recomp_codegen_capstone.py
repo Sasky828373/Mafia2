@@ -11,6 +11,8 @@ from capstone.x86 import X86_OP_REG,X86_OP_IMM,X86_OP_MEM
 import x86_cfg_capstone as cfg
 
 REG={"eax":0,"ecx":1,"edx":2,"ebx":3,"esp":4,"ebp":5,"esi":6,"edi":7}
+REG16={"ax":0,"cx":1,"dx":2,"bx":3,"sp":4,"bp":5,"si":6,"di":7}
+REG8={"al":0,"cl":1,"dl":2,"bl":3,"ah":4,"ch":5,"dh":6,"bh":7}
 
 def ea(ins,o):
     m=o.mem
@@ -20,8 +22,11 @@ def ea(ins,o):
 
 def read_operand(out,ins,o,tmp):
     tmp=f"{tmp}_{ins.address:08X}"
-    if o.type==X86_OP_REG and ins.reg_name(o.reg) in REG:
-        return f"m2::Runtime::reg32(cpu,{REG[ins.reg_name(o.reg)]})"
+    if o.type==X86_OP_REG:
+        rn=ins.reg_name(o.reg)
+        if rn in REG: return f"m2::Runtime::reg32(cpu,{REG[rn]})"
+        if rn in REG16: return f"static_cast<uint32_t>(m2::Runtime::reg16(cpu,{REG16[rn]}))"
+        if rn in REG8: return f"static_cast<uint32_t>(m2::Runtime::reg8(cpu,{REG8[rn]}))"
     if o.type==X86_OP_IMM:
         return f"0x{(o.imm&0xffffffff):08X}u"
     if o.type==X86_OP_MEM and o.size==4:
@@ -30,9 +35,14 @@ def read_operand(out,ins,o,tmp):
     return None
 
 def write_operand(out,ins,o,value):
-    if o.type==X86_OP_REG and ins.reg_name(o.reg) in REG:
-        out.append(f"  m2::Runtime::reg32(cpu,{REG[ins.reg_name(o.reg)]})={value};")
-        return True
+    if o.type==X86_OP_REG:
+        rn=ins.reg_name(o.reg)
+        if rn in REG:
+            out.append(f"  m2::Runtime::reg32(cpu,{REG[rn]})={value};"); return True
+        if rn in REG16:
+            out.append(f"  m2::Runtime::set_reg16(cpu,{REG16[rn]},static_cast<uint16_t>({value}));"); return True
+        if rn in REG8:
+            out.append(f"  m2::Runtime::set_reg8(cpu,{REG8[rn]},static_cast<uint8_t>({value}));"); return True
     if o.type==X86_OP_MEM and o.size==4:
         out.append(f"  if(!rt.write32({ea(ins,o)},{value})) return false;")
         return True
@@ -126,6 +136,10 @@ def generate(data,max_blocks):
                 kind=0 if ins.mnemonic in ("shl","sal") else (1 if ins.mnemonic=="shr" else 2)
                 value=f"m2::Runtime::alu_shift32(cpu,{a},{b},{kind})"
                 if not write_operand(out,ins,dst,value):
+                    out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break
+            elif ins.mnemonic.startswith("set") and len(ins.operands)==1:
+                cc={"seto":0,"setno":1,"setb":2,"setae":3,"sete":4,"setne":5,"setbe":6,"seta":7,"sets":8,"setns":9,"setp":10,"setnp":11,"setl":12,"setge":13,"setle":14,"setg":15}.get(ins.mnemonic)
+                if cc is None or not write_operand(out,ins,ins.operands[0],f"(rt.eval_jcc(cpu,{cc})?1u:0u)"):
                     out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break
             elif ins.mnemonic=="imul" and len(ins.operands) in (2,3):
                 dst=ins.operands[0]

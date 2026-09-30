@@ -1,0 +1,66 @@
+name: Private Recomp Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      exe_artifact_run_id:
+        description: 'Run ID containing private mafia2-exe-input artifact'
+        required: true
+        type: string
+      blocks_per_shard:
+        description: 'Generated blocks per C++ translation unit'
+        required: false
+        default: '1500'
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  recomp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install IA-32 decoder
+        run: python -m pip install capstone==5.0.6
+      - name: Download private EXE input artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mafia2-exe-input
+          run-id: ${{ inputs.exe_artifact_run_id }}
+          github-token: ${{ github.token }}
+          path: private-input
+      - name: Validate input is not tracked
+        run: |
+          test -f private-input/mafia2.exe
+          ! git ls-files --error-unmatch private-input/mafia2.exe
+          sha256sum private-input/mafia2.exe
+      - name: Generate sharded recomp sources
+        run: |
+          rm -rf app/src/main/cpp/generated
+          python tools/recomp_codegen_capstone.py private-input/mafia2.exe \
+            -o app/src/main/cpp/generated \
+            --blocks-per-shard "${{ inputs.blocks_per_shard }}"
+          find app/src/main/cpp/generated -type f -name '*.cpp' | wc -l
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - name: Install Android packages
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build generated ARM64 APK
+        run: gradle --no-daemon :app:assembleDebug
+      - name: Upload APK only
+        uses: actions/upload-artifact@v4
+        with:
+          name: mafia2-generated-arm64-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

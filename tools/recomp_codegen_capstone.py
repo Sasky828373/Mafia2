@@ -91,7 +91,7 @@ def generate(data,max_blocks):
                     out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break
                 if src.type==X86_OP_REG:
                     rn=ins.reg_name(src.reg)
-                    base=rn[-2:] if rn in ("ax","bx","cx","dx") else rn[-1:] if rn in ("al","bl","cl","dl") else None
+                    subreg=rn[-2:] if rn in ("ax","bx","cx","dx") else rn[-1:] if rn in ("al","bl","cl","dl") else None
                     parent={"ax":"eax","bx":"ebx","cx":"ecx","dx":"edx","al":"eax","bl":"ebx","cl":"ecx","dl":"edx"}.get(rn)
                     raw=f"m2::Runtime::reg32(cpu,{REG[parent]})" if parent else None
                 elif src.type==X86_OP_MEM and src.size in (1,2):

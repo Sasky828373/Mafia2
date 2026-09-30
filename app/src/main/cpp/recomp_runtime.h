@@ -50,6 +50,7 @@ public:
     Runtime& operator=(const Runtime&) = delete;
 
     bool ready() const;
+    bool load_pe32(const char* path);
     uint32_t image_base() const { return kImageBase; }
     uint32_t image_size() const { return kImageSize; }
     uint32_t entry_va() const { return kEntryVa; }

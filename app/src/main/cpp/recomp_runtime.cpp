@@ -5,6 +5,8 @@
 #include <cstdio>
 #include <vector>
 
+namespace m2_generated { bool dispatch(m2::Runtime&, m2::X86State&); }
+
 namespace m2 {
 static uint32_t stub_unimplemented(X86State&) { return 0; }
 static constexpr std::array<ImportEntry, 9> kImports{{
@@ -194,7 +196,13 @@ DispatchReport Runtime::dispatch(X86State& cpu, uint32_t max_steps) {
                     return {DispatchResult::MemoryFault, step + 1, cpu.eip};
                 break;
             default:
+#ifdef M2_HAS_GENERATED_DISPATCH
+                if (!m2_generated::dispatch(*this, cpu))
+                    return {DispatchResult::MissingBlock, step, cpu.eip};
+                break;
+#else
                 return {DispatchResult::MissingBlock, step, cpu.eip};
+#endif
         }
     }
     return {DispatchResult::StepLimit, max_steps, cpu.eip};

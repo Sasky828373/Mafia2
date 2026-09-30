@@ -75,6 +75,8 @@ public:
     static uint32_t alu_adc(X86State& cpu, uint32_t a, uint32_t b, uint8_t bits);
     static uint32_t alu_sbb(X86State& cpu, uint32_t a, uint32_t b, uint8_t bits);
     static uint32_t alu_logic(X86State& cpu, uint32_t value, uint8_t bits);
+    static uint32_t alu_inc(X86State& cpu, uint32_t value, uint8_t bits);
+    static uint32_t alu_dec(X86State& cpu, uint32_t value, uint8_t bits);
     static void alu_test32(X86State& cpu, uint32_t a, uint32_t b);
     static uint32_t alu_logic32(X86State& cpu, uint32_t value);
     static uint32_t& reg32(X86State& cpu, uint8_t index);

@@ -118,21 +118,22 @@ def generate(data,max_blocks):
                     out += [f'  return rt.unsupported(0x{ins.address:08X}u, "pop");'];terminated=True;break
             elif ins.mnemonic in ("add","sub","adc","sbb","cmp","test","and","or","xor") and len(ins.operands)==2:
                 dst,src=ins.operands
-                if dst.size!=4:
+                if dst.size not in (1,2,4):
                     out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}_width");'];terminated=True;break
+                bits=dst.size*8
                 a=read_operand(out,ins,dst,"a"); b=read_operand(out,ins,src,"b")
                 if a is None or b is None:
                     out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break
                 m=ins.mnemonic
-                if m=="add": value=f"m2::Runtime::alu_add32(cpu,{a},{b})"
-                elif m=="adc": value=f"m2::Runtime::alu_adc32(cpu,{a},{b})"
-                elif m=="sbb": value=f"m2::Runtime::alu_sbb32(cpu,{a},{b})"
-                elif m in ("sub","cmp"): value=f"m2::Runtime::alu_sub32(cpu,{a},{b})"
+                if m=="add": value=f"m2::Runtime::alu_add(cpu,{a},{b},{bits})"
+                elif m=="adc": value=f"m2::Runtime::alu_adc(cpu,{a},{b},{bits})"
+                elif m=="sbb": value=f"m2::Runtime::alu_sbb(cpu,{a},{b},{bits})"
+                elif m in ("sub","cmp"): value=f"m2::Runtime::alu_sub(cpu,{a},{b},{bits})"
                 elif m=="test":
-                    out.append(f"  m2::Runtime::alu_test32(cpu,{a},{b});"); value=None
+                    out.append(f"  m2::Runtime::alu_logic(cpu,({a})&({b}),{bits});"); value=None
                 else:
                     op={"and":"&","or":"|","xor":"^"}[m]
-                    value=f"m2::Runtime::alu_logic32(cpu,({a}) {op} ({b}))"
+                    value=f"m2::Runtime::alu_logic(cpu,({a}) {op} ({b}),{bits})"
                 if value is not None and m!="cmp" and not write_operand(out,ins,dst,value):
                     out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{m}");'];terminated=True;break
             elif ins.mnemonic in ("shl","sal","shr","sar") and len(ins.operands)==2:

@@ -7,8 +7,35 @@ Everything else traps explicitly so generated code can never silently miscompile
 import argparse
 from pathlib import Path
 from capstone import Cs,CS_ARCH_X86,CS_MODE_32,CS_GRP_RET,CS_GRP_JUMP,CS_GRP_CALL
-from capstone.x86 import X86_OP_IMM
+from capstone.x86 import X86_OP_REG,X86_OP_IMM,X86_OP_MEM
 import x86_cfg_capstone as cfg
+
+REG={"eax":0,"ecx":1,"edx":2,"ebx":3,"esp":4,"ebp":5,"esi":6,"edi":7}
+
+def ea(ins,o):
+    m=o.mem
+    b=REG.get(ins.reg_name(m.base),-1)
+    i=REG.get(ins.reg_name(m.index),-1)
+    return f"m2::Runtime::ea32(cpu,{b},{i},{m.scale},{m.disp})"
+
+def read_operand(out,ins,o,tmp):
+    if o.type==X86_OP_REG and ins.reg_name(o.reg) in REG:
+        return f"m2::Runtime::reg32(cpu,{REG[ins.reg_name(o.reg)]})"
+    if o.type==X86_OP_IMM:
+        return f"0x{(o.imm&0xffffffff):08X}u"
+    if o.type==X86_OP_MEM and o.size==4:
+        out.append(f"  uint32_t {tmp}{{}}; if(!rt.read32({ea(ins,o)},{tmp})) return false;")
+        return tmp
+    return None
+
+def write_operand(out,ins,o,value):
+    if o.type==X86_OP_REG and ins.reg_name(o.reg) in REG:
+        out.append(f"  m2::Runtime::reg32(cpu,{REG[ins.reg_name(o.reg)]})={value};")
+        return True
+    if o.type==X86_OP_MEM and o.size==4:
+        out.append(f"  if(!rt.write32({ea(ins,o)},{value})) return false;")
+        return True
+    return False
 
 def generate(data,max_blocks):
     c=cfg.scan(data,max_blocks);base,_,secs=cfg.pe(data)
@@ -27,6 +54,14 @@ def generate(data,max_blocks):
             if not ins:break
             nxt=(ins.address+ins.size)&0xffffffff
             if ins.mnemonic=="nop": pass
+            elif ins.mnemonic in ("mov","lea") and len(ins.operands)==2:
+                dst,src=ins.operands
+                if ins.mnemonic=="lea" and src.type==X86_OP_MEM:
+                    value=ea(ins,src)
+                else:
+                    value=read_operand(out,ins,src,"v")
+                if value is None or not write_operand(out,ins,dst,value):
+                    out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break
             elif ins.group(CS_GRP_RET):
                 out += ['  { uint32_t t{}; if (!rt.pop32(cpu,t)) return false; cpu.eip=t; }','  return true;'];terminated=True;break
             elif ins.group(CS_GRP_JUMP) and ins.operands and ins.operands[0].type==X86_OP_IMM:

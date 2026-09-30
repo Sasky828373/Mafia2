@@ -57,7 +57,7 @@ extern "C" JNIEXPORT jstring JNICALL
 Java_com_m2port_bootstrap_MainActivity_nativeProbe(JNIEnv* env, jclass, jstring root_) {
     const std::string root = from_jstring(env, root_);
     std::ostringstream out;
-    out << "Mafia II Android ARM64 Host v0.4\n\n";
+    out << "Mafia II Android ARM64 Host v0.5\n\n";
 #if defined(__aarch64__)
     out << "CPU ABI: ARM64 OK\n";
 #else
@@ -69,7 +69,9 @@ Java_com_m2port_bootstrap_MainActivity_nativeProbe(JNIEnv* env, jclass, jstring 
     if (!gpu.empty()) out << "GPU: " << gpu << "\n";
 
     out << "\nGame root:\n" << root << "\n";
-    out << "mafia2.exe: " << (file_exists(root + "/mafia2.exe") ? "FOUND" : "missing") << "\n";
+    const std::string exe = file_exists(root + "/pc/mafia2.exe") ? root + "/pc/mafia2.exe" : root + "/mafia2.exe";
+    out << "mafia2.exe: " << (file_exists(exe) ? "FOUND" : "missing") << "\n";
+    if (file_exists(exe)) out << "Executable: " << exe << "\n";
     out << "pc/sds: " << ((file_exists(root + "/pc/sds/config.bin") || file_exists(root + "/pc/sds/tables.sds")) ? "detected" : "not detected") << "\n";
 
     m2::Runtime rt;
@@ -95,7 +97,7 @@ Java_com_m2port_bootstrap_MainActivity_nativeProbe(JNIEnv* env, jclass, jstring 
     out << "DXVK D3D9: " << lib_state("libdxvk_d3d9.so") << "\n";
     out << "SDL2: " << lib_state("libSDL2.so") << "\n";
 
-    const bool game = file_exists(root + "/mafia2.exe");
+    const bool game = file_exists(exe);
     out << "\nSTATUS: ";
     if (!game) out << "copy your Mafia II PC files into this folder";
     else if (lib_state("libmafia2_recomp.so") != "ready") out << "game files ready; recomp core still required";
@@ -106,8 +108,9 @@ Java_com_m2port_bootstrap_MainActivity_nativeProbe(JNIEnv* env, jclass, jstring 
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_m2port_bootstrap_MainActivity_nativeStart(JNIEnv* env, jclass, jstring root_) {
     const std::string root = from_jstring(env, root_);
-    if (!file_exists(root + "/mafia2.exe"))
-        return env->NewStringUTF("Start blocked: mafia2.exe is missing from the game folder.");
+    const std::string exe = file_exists(root + "/pc/mafia2.exe") ? root + "/pc/mafia2.exe" : root + "/mafia2.exe";
+    if (!file_exists(exe))
+        return env->NewStringUTF("Start blocked: mafia2.exe is missing (expected pc/mafia2.exe or mafia2.exe).");
 
     void* h = dlopen("libmafia2_recomp.so", RTLD_NOW | RTLD_LOCAL);
     if (!h) {

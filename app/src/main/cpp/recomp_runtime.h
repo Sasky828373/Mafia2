@@ -70,6 +70,11 @@ public:
     static uint32_t alu_adc32(X86State& cpu, uint32_t a, uint32_t b);
     static uint32_t alu_sbb32(X86State& cpu, uint32_t a, uint32_t b);
     static uint32_t alu_shift32(X86State& cpu, uint32_t value, uint32_t count, uint8_t kind);
+    static uint32_t alu_add(X86State& cpu, uint32_t a, uint32_t b, uint8_t bits);
+    static uint32_t alu_sub(X86State& cpu, uint32_t a, uint32_t b, uint8_t bits);
+    static uint32_t alu_adc(X86State& cpu, uint32_t a, uint32_t b, uint8_t bits);
+    static uint32_t alu_sbb(X86State& cpu, uint32_t a, uint32_t b, uint8_t bits);
+    static uint32_t alu_logic(X86State& cpu, uint32_t value, uint8_t bits);
     static void alu_test32(X86State& cpu, uint32_t a, uint32_t b);
     static uint32_t alu_logic32(X86State& cpu, uint32_t value);
     static uint32_t& reg32(X86State& cpu, uint8_t index);

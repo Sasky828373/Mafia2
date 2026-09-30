@@ -124,6 +124,30 @@ uint32_t Runtime::alu_sub32(X86State& cpu, uint32_t a, uint32_t b) {
     set_szp(cpu, r);
     return r;
 }
+static uint32_t width_mask(uint8_t bits){return bits==8?0xffu:(bits==16?0xffffu:0xffffffffu);}
+static uint32_t width_sign(uint8_t bits){return bits==8?0x80u:(bits==16?0x8000u:0x80000000u);}
+static void set_szp_width(m2::X86State& cpu,uint32_t r,uint8_t bits){
+    const uint32_t m=width_mask(bits),s=width_sign(bits);r&=m;
+    cpu.set_flag(m2::X86State::ZF,r==0);cpu.set_flag(m2::X86State::SF,(r&s)!=0);
+    uint8_t x=static_cast<uint8_t>(r);x^=x>>4;x&=0xf;cpu.set_flag(m2::X86State::PF,((0x9669u>>x)&1u)!=0);
+}
+uint32_t Runtime::alu_add(X86State& cpu,uint32_t a,uint32_t b,uint8_t bits){
+    const uint64_t m=width_mask(bits);a&=m;b&=m;const uint64_t w=static_cast<uint64_t>(a)+b;const uint32_t r=static_cast<uint32_t>(w)&m;
+    cpu.set_flag(X86State::CF,w>m);cpu.set_flag(X86State::OF,((~(a^b)&(a^r))&width_sign(bits))!=0);set_szp_width(cpu,r,bits);return r;
+}
+uint32_t Runtime::alu_sub(X86State& cpu,uint32_t a,uint32_t b,uint8_t bits){
+    const uint32_t m=width_mask(bits);a&=m;b&=m;const uint32_t r=(a-b)&m;
+    cpu.set_flag(X86State::CF,a<b);cpu.set_flag(X86State::OF,(((a^b)&(a^r))&width_sign(bits))!=0);set_szp_width(cpu,r,bits);return r;
+}
+uint32_t Runtime::alu_adc(X86State& cpu,uint32_t a,uint32_t b,uint8_t bits){
+    const uint32_t c=cpu.flag(X86State::CF)?1u:0u,m=width_mask(bits);a&=m;b&=m;const uint64_t w=static_cast<uint64_t>(a)+b+c;const uint32_t r=static_cast<uint32_t>(w)&m;
+    cpu.set_flag(X86State::CF,w>m);cpu.set_flag(X86State::OF,((~(a^b)&(a^r))&width_sign(bits))!=0);set_szp_width(cpu,r,bits);return r;
+}
+uint32_t Runtime::alu_sbb(X86State& cpu,uint32_t a,uint32_t b,uint8_t bits){
+    const uint32_t c=cpu.flag(X86State::CF)?1u:0u,m=width_mask(bits);a&=m;b&=m;const uint64_t sub=static_cast<uint64_t>(b)+c;const uint32_t r=(a-static_cast<uint32_t>(sub))&m;
+    cpu.set_flag(X86State::CF,static_cast<uint64_t>(a)<sub);cpu.set_flag(X86State::OF,(((a^b)&(a^r))&width_sign(bits))!=0);set_szp_width(cpu,r,bits);return r;
+}
+uint32_t Runtime::alu_logic(X86State& cpu,uint32_t v,uint8_t bits){v&=width_mask(bits);cpu.set_flag(X86State::CF,false);cpu.set_flag(X86State::OF,false);set_szp_width(cpu,v,bits);return v;}
 uint32_t Runtime::alu_adc32(X86State& cpu,uint32_t a,uint32_t b) {
     const uint32_t c=cpu.flag(X86State::CF)?1u:0u;
     const uint64_t w=static_cast<uint64_t>(a)+b+c; const uint32_t r=static_cast<uint32_t>(w);

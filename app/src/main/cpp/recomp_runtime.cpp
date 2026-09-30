@@ -124,6 +124,23 @@ uint32_t Runtime::alu_sub32(X86State& cpu, uint32_t a, uint32_t b) {
     set_szp(cpu, r);
     return r;
 }
+uint32_t Runtime::alu_adc32(X86State& cpu,uint32_t a,uint32_t b) {
+    const uint32_t c=cpu.flag(X86State::CF)?1u:0u;
+    const uint64_t w=static_cast<uint64_t>(a)+b+c; const uint32_t r=static_cast<uint32_t>(w);
+    cpu.set_flag(X86State::CF,(w>>32)!=0); cpu.set_flag(X86State::OF,((~(a^b)&(a^r))&0x80000000u)!=0); set_szp(cpu,r); return r;
+}
+uint32_t Runtime::alu_sbb32(X86State& cpu,uint32_t a,uint32_t b) {
+    const uint32_t c=cpu.flag(X86State::CF)?1u:0u; const uint64_t sub=static_cast<uint64_t>(b)+c;
+    const uint32_t r=a-static_cast<uint32_t>(sub); cpu.set_flag(X86State::CF,static_cast<uint64_t>(a)<sub);
+    cpu.set_flag(X86State::OF,(((a^b)&(a^r))&0x80000000u)!=0); set_szp(cpu,r); return r;
+}
+uint32_t Runtime::alu_shift32(X86State& cpu,uint32_t v,uint32_t count,uint8_t kind) {
+    count&=31u; if(!count)return v; uint32_t r=v;
+    if(kind==0){cpu.set_flag(X86State::CF,((v>>(32-count))&1u)!=0);r=v<<count;}
+    else if(kind==1){cpu.set_flag(X86State::CF,((v>>(count-1))&1u)!=0);r=v>>count;}
+    else {cpu.set_flag(X86State::CF,((v>>(count-1))&1u)!=0);r=static_cast<uint32_t>(static_cast<int32_t>(v)>>count);}
+    set_szp(cpu,r); return r;
+}
 void Runtime::alu_test32(X86State& cpu, uint32_t a, uint32_t b) {
     const uint32_t r = a & b;
     cpu.set_flag(X86State::CF, false);

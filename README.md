@@ -1,21 +1,39 @@
-# Mafia II Android ARM64 Bootstrap
+# Mafia II Android ARM64
 
-Experimental clean-room Android host for a future Mafia II recompilation port.
+Experimental clean-room ARM64 host and static-recompilation project for Mafia II Classic.
 
-## Current scope
-- ARM64-only Android target
-- Vulkan 1.1 device probe
-- loader boundary for a future `libdxvk_d3d9.so`
-- loader boundary for a future `libmafia2_recomp.so`
-- no proprietary Mafia II game files are included
+## Current v0.4 host
+- ARM64-only Android APK
+- Vulkan 1.1 device detection
+- dedicated Mafia II game directory under the app external-files folder
+- verifies the user-supplied `mafia2.exe`
+- ARM64 recomp runtime and dispatcher self-test
+- runtime loader boundary for `libmafia2_recomp.so`
+- runtime detection for `libdxvk_d3d9.so` and `libSDL2.so`
+- launch ABI: `int mafia2_recomp_main(const char* game_root)`
+- no proprietary Mafia II files are distributed
 
-## Planned architecture
+## Architecture
 `recompiled Mafia II code -> Win32 compatibility ABI -> D3D9/DXVK -> Vulkan -> Android GPU driver`
 
-The original Windows `mafia2.exe`, PhysX/APEX DLLs, Bink and game assets must be supplied separately by the user and must not be committed to this repository.
+The original Windows game files must be supplied by the user. They are never committed to this repository.
+
+## Game folder
+The APK creates:
+
+`Android/data/com.m2port.bootstrap/files/Mafia2/`
+
+Copy the user's legally obtained Mafia II Classic installation files there. The host checks for `mafia2.exe` and then hands that directory to the recomp core.
+
+## Recomp core ABI
+A future/generated `libmafia2_recomp.so` must export:
+
+`extern "C" int mafia2_recomp_main(const char* game_root);`
+
+The Android host loads it dynamically, so the Java/UI layer does not need to be rebuilt for each translated-code revision.
 
 ## Current blocker
-The original PC executable is PE32/i386. Android ARM64 cannot load it natively. The next major milestone is an x86 static recompilation/translation layer plus implementations for the Win32 imports used by translated code.
+The PC executable is PE32/i386. The repository now has the ARM64 runtime/dispatcher and x86 analysis tooling, but a complete generated translation of Mafia II's executable plus Win32/D3D9/PhysX/Bink compatibility is still required before the retail game can boot.
 
 ## Build
 GitHub Actions builds an ARM64 debug APK using JDK 17, Android SDK/NDK and Gradle.

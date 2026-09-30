@@ -29,9 +29,11 @@ def read_operand(out,ins,o,tmp):
         if rn in REG8: return f"static_cast<uint32_t>(m2::Runtime::reg8(cpu,{REG8[rn]}))"
     if o.type==X86_OP_IMM:
         return f"0x{(o.imm&0xffffffff):08X}u"
-    if o.type==X86_OP_MEM and o.size==4:
-        out.append(f"  uint32_t {tmp}{{}}; if(!rt.read32({ea(ins,o)},{tmp})) return false;")
-        return tmp
+    if o.type==X86_OP_MEM and o.size in (1,2,4):
+        ctype={1:"uint8_t",2:"uint16_t",4:"uint32_t"}[o.size]
+        reader={1:"read8",2:"read16",4:"read32"}[o.size]
+        out.append(f"  {ctype} {tmp}{{}}; if(!rt.{reader}({ea(ins,o)},{tmp})) return false;")
+        return f"static_cast<uint32_t>({tmp})"
     return None
 
 def write_operand(out,ins,o,value):
@@ -43,8 +45,10 @@ def write_operand(out,ins,o,value):
             out.append(f"  m2::Runtime::set_reg16(cpu,{REG16[rn]},static_cast<uint16_t>({value}));"); return True
         if rn in REG8:
             out.append(f"  m2::Runtime::set_reg8(cpu,{REG8[rn]},static_cast<uint8_t>({value}));"); return True
-    if o.type==X86_OP_MEM and o.size==4:
-        out.append(f"  if(!rt.write32({ea(ins,o)},{value})) return false;")
+    if o.type==X86_OP_MEM and o.size in (1,2,4):
+        writer={1:"write8",2:"write16",4:"write32"}[o.size]
+        ctype={1:"uint8_t",2:"uint16_t",4:"uint32_t"}[o.size]
+        out.append(f"  if(!rt.{writer}({ea(ins,o)},static_cast<{ctype}>({value}))) return false;")
         return True
     return False
 
@@ -137,6 +141,16 @@ def generate(data,max_blocks):
                 value=f"m2::Runtime::alu_shift32(cpu,{a},{b},{kind})"
                 if not write_operand(out,ins,dst,value):
                     out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break
+            elif ins.mnemonic.startswith("cmov") and len(ins.operands)==2:
+                cc={"cmovo":0,"cmovno":1,"cmovb":2,"cmovae":3,"cmove":4,"cmovne":5,"cmovbe":6,"cmova":7,"cmovs":8,"cmovns":9,"cmovp":10,"cmovnp":11,"cmovl":12,"cmovge":13,"cmovle":14,"cmovg":15}.get(ins.mnemonic)
+                dst,src=ins.operands
+                value=read_operand(out,ins,src,"cmov")
+                if cc is None or value is None:
+                    out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break
+                out.append(f"  if(rt.eval_jcc(cpu,{cc})) {{")
+                if not write_operand(out,ins,dst,value):
+                    out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break
+                out.append("  }")
             elif ins.mnemonic.startswith("set") and len(ins.operands)==1:
                 cc={"seto":0,"setno":1,"setb":2,"setae":3,"sete":4,"setne":5,"setbe":6,"seta":7,"sets":8,"setns":9,"setp":10,"setnp":11,"setl":12,"setge":13,"setle":14,"setg":15}.get(ins.mnemonic)
                 if cc is None or not write_operand(out,ins,ins.operands[0],f"(rt.eval_jcc(cpu,{cc})?1u:0u)"):

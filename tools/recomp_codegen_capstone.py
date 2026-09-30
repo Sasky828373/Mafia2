@@ -62,6 +62,31 @@ def generate(data,max_blocks):
                     value=read_operand(out,ins,src,"v")
                 if value is None or not write_operand(out,ins,dst,value):
                     out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break
+            elif ins.mnemonic in ("inc","dec") and len(ins.operands)==1:
+                dst=ins.operands[0]; a=read_operand(out,ins,dst,"a")
+                if a is None:
+                    out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break
+                value=f"m2::Runtime::alu_{'add' if ins.mnemonic=='inc' else 'sub'}32(cpu,{a},1u)"
+                if not write_operand(out,ins,dst,value):
+                    out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break
+            elif ins.mnemonic in ("movzx","movsx") and len(ins.operands)==2:
+                dst,src=ins.operands
+                if dst.type!=X86_OP_REG or ins.reg_name(dst.reg) not in REG:
+                    out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break
+                if src.type==X86_OP_REG:
+                    rn=ins.reg_name(src.reg)
+                    base=rn[-2:] if rn in ("ax","bx","cx","dx") else rn[-1:] if rn in ("al","bl","cl","dl") else None
+                    parent={"ax":"eax","bx":"ebx","cx":"ecx","dx":"edx","al":"eax","bl":"ebx","cl":"ecx","dl":"edx"}.get(rn)
+                    raw=f"m2::Runtime::reg32(cpu,{REG[parent]})" if parent else None
+                elif src.type==X86_OP_MEM and src.size in (1,2):
+                    raw=None
+                else: raw=None
+                if raw is None:
+                    out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break
+                bits=src.size*8; mask=(1<<bits)-1
+                if ins.mnemonic=="movzx": value=f"({raw}&0x{mask:X}u)"
+                else: value=f"static_cast<uint32_t>(static_cast<int32_t>(static_cast<int{bits}_t>({raw}&0x{mask:X}u)))"
+                write_operand(out,ins,dst,value)
             elif ins.mnemonic=="push" and len(ins.operands)==1:
                 value=read_operand(out,ins,ins.operands[0],"v")
                 if value is None:

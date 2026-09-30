@@ -123,6 +123,16 @@ def generate(data,max_blocks):
                     cc={"jo":0,"jno":1,"jb":2,"jae":3,"je":4,"jne":5,"jbe":6,"ja":7,"js":8,"jns":9,"jp":10,"jnp":11,"jl":12,"jge":13,"jle":14,"jg":15}.get(ins.mnemonic)
                     if cc is None: out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break
                     out += [f'  cpu.eip=rt.eval_jcc(cpu,{cc})?0x{target:08X}u:0x{nxt:08X}u;','  return true;'];terminated=True;break
+            elif ins.group(CS_GRP_CALL) and ins.operands and ins.operands[0].type!=X86_OP_IMM:
+                target=read_operand(out,ins,ins.operands[0],"target")
+                if target is None:
+                    out += [f'  return rt.unsupported(0x{ins.address:08X}u, "call_indirect");'];terminated=True;break
+                out += [f'  if (!rt.push32(cpu,0x{nxt:08X}u)) return false;',f'  cpu.eip={target};','  return true;'];terminated=True;break
+            elif ins.group(CS_GRP_JUMP) and ins.operands and ins.operands[0].type!=X86_OP_IMM:
+                target=read_operand(out,ins,ins.operands[0],"target")
+                if target is None:
+                    out += [f'  return rt.unsupported(0x{ins.address:08X}u, "jmp_indirect");'];terminated=True;break
+                out += [f'  cpu.eip={target};','  return true;'];terminated=True;break
             elif ins.group(CS_GRP_CALL) and ins.operands and ins.operands[0].type==X86_OP_IMM:
                 target=ins.operands[0].imm&0xffffffff
                 out += [f'  if (!rt.push32(cpu,0x{nxt:08X}u)) return false;',f'  cpu.eip=0x{target:08X}u;','  return true;'];terminated=True;break

@@ -25,6 +25,7 @@ int mafia2_recomp_main(const char* game_root) {
 
     m2::Runtime rt;
     if (!rt.ready()) return -3;
+    if (!rt.load_pe32(exe.c_str())) { M2LOG("PE32 load failed: %s", exe.c_str()); return -5; }
 
     m2::X86State cpu{};
     cpu.eip = rt.entry_va();

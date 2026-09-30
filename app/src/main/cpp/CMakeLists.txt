@@ -14,7 +14,9 @@ target_link_libraries(m2bootstrap PRIVATE ${log-lib} ${dl-lib} ${vulkan-lib})
 set(MAFIA2_RECOMP_SOURCES recomp_core.cpp recomp_runtime.cpp)
 set(MAFIA2_HAS_GENERATED OFF)
 set(MAFIA2_GENERATED "${CMAKE_CURRENT_SOURCE_DIR}/mafia2_generated.cpp")
-file(GLOB MAFIA2_GENERATED_SHARDS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/mafia2_generated_*.cpp")
+file(GLOB MAFIA2_GENERATED_SHARDS CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/mafia2_generated_*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/generated/mafia2_generated_*.cpp")
 if(MAFIA2_GENERATED_SHARDS)
     list(APPEND MAFIA2_RECOMP_SOURCES ${MAFIA2_GENERATED_SHARDS})
     set(MAFIA2_HAS_GENERATED ON)

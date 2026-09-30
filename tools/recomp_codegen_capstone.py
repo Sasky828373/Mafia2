@@ -79,7 +79,10 @@ def generate(data,max_blocks):
                     parent={"ax":"eax","bx":"ebx","cx":"ecx","dx":"edx","al":"eax","bl":"ebx","cl":"ecx","dl":"edx"}.get(rn)
                     raw=f"m2::Runtime::reg32(cpu,{REG[parent]})" if parent else None
                 elif src.type==X86_OP_MEM and src.size in (1,2):
-                    raw=None
+                    ctype="uint8_t" if src.size==1 else "uint16_t"
+                    reader="read8" if src.size==1 else "read16"
+                    out.append(f"  {ctype} narrow{{}}; if(!rt.{reader}({ea(ins,src)},narrow)) return false;")
+                    raw="static_cast<uint32_t>(narrow)"
                 else: raw=None
                 if raw is None:
                     out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break

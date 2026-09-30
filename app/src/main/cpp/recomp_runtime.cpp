@@ -56,6 +56,18 @@ static void set_szp(X86State& cpu, uint32_t r) {
     cpu.set_flag(X86State::SF, (r & 0x80000000u) != 0);
     cpu.set_flag(X86State::PF, parity_even8(r));
 }
+bool Runtime::read8(uint32_t va, uint8_t& value) const {
+    const auto* p=ptr_from_va(va,1); if(!p)return false; value=*p; return true;
+}
+bool Runtime::read16(uint32_t va, uint16_t& value) const {
+    const auto* p=ptr_from_va(va,2); if(!p)return false; std::memcpy(&value,p,2); return true;
+}
+bool Runtime::write8(uint32_t va, uint8_t value) {
+    auto* p=ptr_from_va(va,1); if(!p)return false; *p=value; return true;
+}
+bool Runtime::write16(uint32_t va, uint16_t value) {
+    auto* p=ptr_from_va(va,2); if(!p)return false; std::memcpy(p,&value,2); return true;
+}
 bool Runtime::read32(uint32_t va, uint32_t& value) const {
     const auto* p = ptr_from_va(va, 4);
     if (!p) return false;

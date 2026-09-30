@@ -86,7 +86,9 @@ public:
     static void set_reg8(X86State& cpu, uint8_t index, uint8_t value);
     static const uint32_t& reg32(const X86State& cpu, uint8_t index);
     static uint32_t ea32(const X86State& cpu, int base, int index, uint8_t scale, int32_t disp);
-    bool unsupported(uint32_t va, const char* mnemonic) { (void)va; (void)mnemonic; return false; }
+    bool unsupported(uint32_t va, const char* mnemonic);
+    uint32_t last_unsupported_va() const { return last_unsupported_va_; }
+    const char* last_unsupported_mnemonic() const { return last_unsupported_mnemonic_; }
     static bool eval_jcc(const X86State& cpu, uint8_t cc);
     DispatchReport dispatch(X86State& cpu, uint32_t max_steps = 64);
     size_t import_count() const;
@@ -95,5 +97,7 @@ public:
 
 private:
     uint8_t* image_{};
+    uint32_t last_unsupported_va_{};
+    const char* last_unsupported_mnemonic_{};
 };
 }

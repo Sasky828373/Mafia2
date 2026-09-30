@@ -67,6 +67,9 @@ public:
     bool write32(uint32_t va, uint32_t value);
     static uint32_t alu_add32(X86State& cpu, uint32_t a, uint32_t b);
     static uint32_t alu_sub32(X86State& cpu, uint32_t a, uint32_t b);
+    static uint32_t alu_adc32(X86State& cpu, uint32_t a, uint32_t b);
+    static uint32_t alu_sbb32(X86State& cpu, uint32_t a, uint32_t b);
+    static uint32_t alu_shift32(X86State& cpu, uint32_t value, uint32_t count, uint8_t kind);
     static void alu_test32(X86State& cpu, uint32_t a, uint32_t b);
     static uint32_t alu_logic32(X86State& cpu, uint32_t value);
     static uint32_t& reg32(X86State& cpu, uint8_t index);

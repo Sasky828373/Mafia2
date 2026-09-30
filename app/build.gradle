@@ -8,11 +8,12 @@ android {
         applicationId 'com.m2port.bootstrap'
         minSdk 26
         targetSdk 35
-        versionCode 4
-        versionName '0.4-arm64-host'
+        versionCode 5
+        versionName '0.5-arm64-recomp-core'
         ndk { abiFilters 'arm64-v8a' }
         externalNativeBuild {
             cmake {
+                arguments '-DANDROID_STL=c++_static'
                 cppFlags '-std=c++20 -O3 -DNDEBUG -fvisibility=hidden -fno-exceptions -fno-rtti'
             }
         }

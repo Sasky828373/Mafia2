@@ -28,9 +28,19 @@ jobs:
           python3 tools/x86_cfg.py --help
           python3 tools/x86_cfg_capstone.py --help
           python3 tools/x86_lift_capstone.py --help
+          python3 tools/recomp_codegen_capstone.py --help
           python3 tools/recomp_ir.py --help
           python3 tools/x86_to_ir.py --help
           python3 tools/full_recomp.py --help
+      - name: Generated dispatcher compile smoke test
+        run: |
+          cat > /tmp/minimal.cpp <<'EOF'
+          #include "app/src/main/cpp/recomp_runtime.h"
+          namespace m2_generated {
+          bool dispatch(m2::Runtime&,m2::X86State&) { return false; }
+          }
+          EOF
+          c++ -std=c++20 -I. -fsyntax-only /tmp/minimal.cpp
       - name: IR/codegen smoke tests
         run: |
           python3 tests/test_recomp_ir.py

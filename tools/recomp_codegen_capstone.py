@@ -62,6 +62,30 @@ def generate(data,max_blocks):
                     value=read_operand(out,ins,src,"v")
                 if value is None or not write_operand(out,ins,dst,value):
                     out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break
+            elif ins.mnemonic=="push" and len(ins.operands)==1:
+                value=read_operand(out,ins,ins.operands[0],"v")
+                if value is None:
+                    out += [f'  return rt.unsupported(0x{ins.address:08X}u, "push");'];terminated=True;break
+                out.append(f"  if(!rt.push32(cpu,{value})) return false;")
+            elif ins.mnemonic=="pop" and len(ins.operands)==1:
+                out.append("  uint32_t v{}; if(!rt.pop32(cpu,v)) return false;")
+                if not write_operand(out,ins,ins.operands[0],"v"):
+                    out += [f'  return rt.unsupported(0x{ins.address:08X}u, "pop");'];terminated=True;break
+            elif ins.mnemonic in ("add","sub","cmp","test","and","or","xor") and len(ins.operands)==2:
+                dst,src=ins.operands
+                a=read_operand(out,ins,dst,"a"); b=read_operand(out,ins,src,"b")
+                if a is None or b is None:
+                    out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{ins.mnemonic}");'];terminated=True;break
+                m=ins.mnemonic
+                if m=="add": value=f"m2::Runtime::alu_add32(cpu,{a},{b})"
+                elif m in ("sub","cmp"): value=f"m2::Runtime::alu_sub32(cpu,{a},{b})"
+                elif m=="test":
+                    out.append(f"  m2::Runtime::alu_test32(cpu,{a},{b});"); value=None
+                else:
+                    op={"and":"&","or":"|","xor":"^"}[m]
+                    value=f"m2::Runtime::alu_logic32(cpu,({a}) {op} ({b}))"
+                if value is not None and m!="cmp" and not write_operand(out,ins,dst,value):
+                    out += [f'  return rt.unsupported(0x{ins.address:08X}u, "{m}");'];terminated=True;break
             elif ins.group(CS_GRP_RET):
                 out += ['  { uint32_t t{}; if (!rt.pop32(cpu,t)) return false; cpu.eip=t; }','  return true;'];terminated=True;break
             elif ins.group(CS_GRP_JUMP) and ins.operands and ins.operands[0].type==X86_OP_IMM:

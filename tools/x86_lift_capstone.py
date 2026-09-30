@@ -61,8 +61,8 @@ def lift(data,max_blocks):
     return c,out,cats,mn,unsupported
 
 def main():
-    a=argparse.ArgumentParser();a.add_argument("exe",type=Path);a.add_argument("-o","--output",type=Path,default=Path("lift_coverage.json"));a.add_argument("--max-blocks",type=int,default=1000000)
-    data=a.exe.read_bytes();c,blocks,cats,mn,bad=lift(data,a.max_blocks)
+    ap=argparse.ArgumentParser();ap.add_argument("exe",type=Path);ap.add_argument("-o","--output",type=Path,default=Path("lift_coverage.json"));ap.add_argument("--max-blocks",type=int,default=1000000)
+    a=ap.parse_args(); data=a.exe.read_bytes();c,blocks,cats,mn,bad=lift(data,a.max_blocks)
     report={"entry_va":c["entry_va"],"blocks":len(blocks),"indirect_unresolved":c["indirect_count"],
       "resolved_jump_table_edges":c["resolved_jump_table_edges"],"categories":dict(cats),
       "unsupported_mnemonics":dict(bad),"unique_mnemonics":len(mn)}
